@@ -11,19 +11,25 @@ def build_parameters(body):
 
     prompt_lines = [k.strip() for k in prompt.split('\n')]
     max_context = body.get('max_context_length', 2048)
-    while len(prompt_lines) >= 0 and len(encode('\n'.join(prompt_lines))) > max_context:
+    while len(encode('\n'.join(prompt_lines))) > max_context:
         prompt_lines.pop(0)
 
     prompt = '\n'.join(prompt_lines)
 
-    generate_params = {
-        'max_new_tokens': int(body.get('max_new_tokens', body.get('max_length', 200))),
+    return {
+        'max_new_tokens': int(
+            body.get('max_new_tokens', body.get('max_length', 200))
+        ),
         'do_sample': bool(body.get('do_sample', True)),
         'temperature': float(body.get('temperature', 0.5)),
         'top_p': float(body.get('top_p', 1)),
         'typical_p': float(body.get('typical_p', body.get('typical', 1))),
-        'repetition_penalty': float(body.get('repetition_penalty', body.get('rep_pen', 1.1))),
-        'encoder_repetition_penalty': float(body.get('encoder_repetition_penalty', 1.0)),
+        'repetition_penalty': float(
+            body.get('repetition_penalty', body.get('rep_pen', 1.1))
+        ),
+        'encoder_repetition_penalty': float(
+            body.get('encoder_repetition_penalty', 1.0)
+        ),
         'top_k': int(body.get('top_k', 0)),
         'min_length': int(body.get('min_length', 0)),
         'no_repeat_ngram_size': int(body.get('no_repeat_ngram_size', 0)),
@@ -39,8 +45,6 @@ def build_parameters(body):
         'custom_stopping_strings': '',  # leave this blank
         'stopping_strings': body.get('stopping_strings', []),
     }
-
-    return generate_params
 
 
 def try_start_cloudflared(port: int, max_attempts: int = 3, on_start: Optional[Callable[[str], None]] = None):

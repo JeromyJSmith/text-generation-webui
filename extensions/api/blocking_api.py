@@ -39,11 +39,7 @@ class Handler(BaseHTTPRequestHandler):
 
             answer = ''
             for a in generator:
-                if isinstance(a, str):
-                    answer = a
-                else:
-                    answer = a[0]
-
+                answer = a if isinstance(a, str) else a[0]
             response = json.dumps({
                 'results': [{
                     'text': answer if shared.is_chat() else answer[len(prompt):]

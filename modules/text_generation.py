@@ -71,9 +71,12 @@ def get_reply_from_output_ids(output_ids, input_ids, original_question, state):
         new_tokens = len(output_ids) - len(input_ids[0])
         reply = decode(output_ids[-new_tokens:], state['skip_special_tokens'])
 
-        if type(shared.tokenizer) is transformers.LlamaTokenizer:
-            if len(original_question) > 0 and original_question[-1] not in [' ', '\n']:
-                reply = ' ' + reply
+        if (
+            type(shared.tokenizer) is transformers.LlamaTokenizer
+            and len(original_question) > 0
+            and original_question[-1] not in [' ', '\n']
+        ):
+            reply = f' {reply}'
 
         if not shared.is_chat():
             reply = original_question + apply_extensions('output', reply)
@@ -91,7 +94,7 @@ def generate_softprompt_input_tensors(input_ids):
 
 # Removes empty replies from gpt4chan outputs
 def fix_gpt4chan(s):
-    for i in range(10):
+    for _ in range(10):
         s = re.sub("--- [0-9]*\n>>[0-9]*\n---", "---", s)
         s = re.sub("--- [0-9]*\n *\n---", "---", s)
         s = re.sub("--- [0-9]*\n\n\n---", "---", s)
@@ -111,17 +114,16 @@ def fix_galactica(s):
 
 
 def formatted_outputs(reply, model_name):
-    if not shared.is_chat():
-        if shared.model_type == 'galactica':
-            reply = fix_galactica(reply)
-            return reply, reply, generate_basic_html(reply)
-        elif shared.model_type == 'gpt4chan':
-            reply = fix_gpt4chan(reply)
-            return reply, 'Only applicable for GALACTICA models.', generate_4chan_html(reply)
-        else:
-            return reply, 'Only applicable for GALACTICA models.', generate_basic_html(reply)
-    else:
+    if shared.is_chat():
         return reply
+    if shared.model_type == 'galactica':
+        reply = fix_galactica(reply)
+        return reply, reply, generate_basic_html(reply)
+    elif shared.model_type == 'gpt4chan':
+        reply = fix_gpt4chan(reply)
+        return reply, 'Only applicable for GALACTICA models.', generate_4chan_html(reply)
+    else:
+        return reply, 'Only applicable for GALACTICA models.', generate_basic_html(reply)
 
 
 def set_manual_seed(seed):
@@ -148,28 +150,25 @@ def get_generate_params(state):
         generate_params['token_count'] = state['max_new_tokens']
         for k in ['temperature', 'top_p', 'top_k', 'repetition_penalty']:
             generate_params[k] = state[k]
+    elif shared.args.flexgen:
+        for k in ['max_new_tokens', 'do_sample', 'temperature']:
+            generate_params[k] = state[k]
+
+        if not shared.args.no_stream:
+            generate_params['max_new_tokens'] = 8
+
     else:
-        # FlexGen
-        if shared.args.flexgen:
-            for k in ['max_new_tokens', 'do_sample', 'temperature']:
-                generate_params[k] = state[k]
+        for k in ['max_new_tokens', 'do_sample', 'temperature', 'top_p', 'typical_p', 'repetition_penalty', 'encoder_repetition_penalty', 'top_k', 'min_length', 'no_repeat_ngram_size', 'num_beams', 'penalty_alpha', 'length_penalty', 'early_stopping']:
+            generate_params[k] = state[k]
 
-            if not shared.args.no_stream:
-                generate_params['max_new_tokens'] = 8
+        if state['ban_eos_token']:
+            generate_params['suppress_tokens'] = [shared.tokenizer.eos_token_id]
 
-        # transformers
-        else:
-            for k in ['max_new_tokens', 'do_sample', 'temperature', 'top_p', 'typical_p', 'repetition_penalty', 'encoder_repetition_penalty', 'top_k', 'min_length', 'no_repeat_ngram_size', 'num_beams', 'penalty_alpha', 'length_penalty', 'early_stopping']:
-                generate_params[k] = state[k]
+        if shared.args.no_cache:
+            generate_params['use_cache'] = False
 
-            if state['ban_eos_token']:
-                generate_params['suppress_tokens'] = [shared.tokenizer.eos_token_id]
-
-            if shared.args.no_cache:
-                generate_params.update({'use_cache': False})
-
-            if shared.args.deepspeed:
-                generate_params.update({'synced_gpus': True})
+        if shared.args.deepspeed:
+            generate_params['synced_gpus'] = True
 
     return generate_params
 

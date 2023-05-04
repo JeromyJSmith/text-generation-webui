@@ -14,12 +14,11 @@ from server import get_model_specific_settings, update_model_parameters
 
 
 def load_past_evaluations():
-    if Path('logs/evaluations.csv').exists():
-        df = pd.read_csv(Path('logs/evaluations.csv'), dtype=str)
-        df['Perplexity'] = pd.to_numeric(df['Perplexity'])
-        return df
-    else:
+    if not Path('logs/evaluations.csv').exists():
         return pd.DataFrame(columns=['Model', 'LoRAs', 'Dataset', 'Perplexity', 'stride', 'max_length', 'Date', 'Comment'])
+    df = pd.read_csv(Path('logs/evaluations.csv'), dtype=str)
+    df['Perplexity'] = pd.to_numeric(df['Perplexity'])
+    return df
 past_evaluations = load_past_evaluations()
 
 
@@ -36,8 +35,7 @@ def calculate_perplexity(models, input_dataset, stride, _max_length):
     '''
 
     global past_evaluations
-    cumulative_log = ''
-    cumulative_log += "Loading the input dataset...\n"
+    cumulative_log = '' + "Loading the input dataset...\n"
     yield cumulative_log
 
     # Copied from https://github.com/qwopqwop200/GPTQ-for-LLaMa/blob/triton/utils/datautils.py
@@ -131,12 +129,10 @@ def is_in_past_evaluations(model, dataset, stride, max_length):
                                (past_evaluations['max_length'] == str(max_length)) &
                                (past_evaluations['stride'] == str(stride))]
 
-    if entries.shape[0] > 0:
-        return True
-    else:
-        return False
+    return entries.shape[0] > 0
 
 
 def generate_markdown_table():
-    sorted_df = past_evaluations.sort_values(by=['Dataset', 'stride', 'Perplexity', 'Date'])
-    return sorted_df
+    return past_evaluations.sort_values(
+        by=['Dataset', 'stride', 'Perplexity', 'Date']
+    )

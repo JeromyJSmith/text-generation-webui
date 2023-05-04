@@ -11,7 +11,7 @@ params = {
     'port': int(os.environ.get('OPENEDAI_PORT')) if 'OPENEDAI_PORT' in os.environ else 5001,
 }
 
-debug = True if 'OPENEDAI_DEBUG' in os.environ else False
+debug = 'OPENEDAI_DEBUG' in os.environ
 
 # Optional, install the module and download the model to enable
 # v1/embeddings
@@ -20,7 +20,7 @@ try:
 except ImportError:
     pass
 
-st_model = os.environ["OPENEDAI_EMBEDDING_MODEL"] if "OPENEDAI_EMBEDDING_MODEL" in os.environ else "all-mpnet-base-v2"
+st_model = os.environ.get("OPENEDAI_EMBEDDING_MODEL", "all-mpnet-base-v2")
 embedding_model = None
 
 standard_stopping_strings = ['\nsystem:', '\nuser:', '\nhuman:', '\nassistant:', '\n###', ]

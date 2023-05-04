@@ -28,8 +28,7 @@ theme = gr.themes.Default(
 
 def list_model_elements():
     elements = ['cpu_memory', 'auto_devices', 'disk', 'cpu', 'bf16', 'load_in_8bit', 'wbits', 'groupsize', 'model_type', 'pre_layer']
-    for i in range(torch.cuda.device_count()):
-        elements.append(f'gpu_memory_{i}')
+    elements.extend(f'gpu_memory_{i}' for i in range(torch.cuda.device_count()))
     return elements
 
 
@@ -43,10 +42,7 @@ def list_interface_input_elements(chat=False):
 
 
 def gather_interface_values(*args):
-    output = {}
-    for i, element in enumerate(shared.input_elements):
-        output[element] = args[i]
-
+    output = {element: args[i] for i, element in enumerate(shared.input_elements)}
     shared.persistent_interface_state = output
     return output
 
@@ -57,15 +53,25 @@ def apply_interface_values(state, use_persistent=False):
 
     elements = list_interface_input_elements(chat=shared.is_chat())
     if len(state) == 0:
-        return [gr.update() for k in elements]  # Dummy, do nothing
+        return [gr.update() for _ in elements]
+    if use_persistent and 'mode' in state:
+        return (
+            [
+                state[k]
+                if (k not in ['character_menu'] and k in state)
+                else gr.update()
+                for k in elements
+            ]
+            if state['mode'] == 'instruct'
+            else [
+                state[k]
+                if (k not in ['instruction_template'] and k in state)
+                else gr.update()
+                for k in elements
+            ]
+        )
     else:
-        if use_persistent and 'mode' in state:
-            if state['mode'] == 'instruct':
-                return [state[k] if (k not in ['character_menu'] and k in state) else gr.update() for k in elements]
-            else:
-                return [state[k] if (k not in ['instruction_template'] and k in state) else gr.update() for k in elements]
-        else:
-            return [state[k] if k in state else gr.update() for k in elements]
+        return [state[k] if k in state else gr.update() for k in elements]
 
 
 class ToolButton(gr.Button, gr.components.FormComponent):

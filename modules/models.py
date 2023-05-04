@@ -71,10 +71,10 @@ def load_model(model_name):
 
     shared.model_type = find_model_type(model_name)
     trust_remote_code = shared.args.trust_remote_code
-    if shared.model_type == 'chatglm':
-        LoaderClass = AutoModel
-    elif shared.model_type == 'HF_seq2seq':
+    if shared.model_type == 'HF_seq2seq':
         LoaderClass = AutoModelForSeq2SeqLM
+    elif shared.model_type == 'chatglm':
+        LoaderClass = AutoModel
     else:
         LoaderClass = AutoModelForCausalLM
 
@@ -87,7 +87,6 @@ def load_model(model_name):
         else:
             model = model.cuda()
 
-    # FlexGen
     elif shared.args.flexgen:
         # Initialize environment
         env = ExecutionEnv.create(shared.args.disk_cache_dir)
@@ -110,14 +109,12 @@ def load_model(model_name):
 
         model = OptLM(f"facebook/{model_name}", env, shared.args.model_dir, policy)
 
-    # DeepSpeed ZeRO-3
     elif shared.args.deepspeed:
         model = LoaderClass.from_pretrained(Path(f"{shared.args.model_dir}/{model_name}"), torch_dtype=torch.bfloat16 if shared.args.bf16 else torch.float16)
         model = deepspeed.initialize(model=model, config_params=ds_config, model_parameters=None, optimizer=None, lr_scheduler=None)[0]
         model.module.eval()  # Inference
         logging.info(f"DeepSpeed ZeRO-3 is enabled: {is_deepspeed_zero3_enabled()}")
 
-    # RMKV model (not on HuggingFace)
     elif shared.model_type == 'rwkv':
         from modules.RWKV import RWKVModel, RWKVTokenizer
 
@@ -126,7 +123,6 @@ def load_model(model_name):
 
         return model, tokenizer
 
-    # llamacpp model
     elif shared.model_type == 'llamacpp':
         from modules.llamacpp_model import LlamaCppModel
 
@@ -140,7 +136,6 @@ def load_model(model_name):
         model, tokenizer = LlamaCppModel.from_pretrained(model_file)
         return model, tokenizer
 
-    # Quantized model
     elif shared.args.wbits > 0:
 
         # Monkey patch
@@ -156,7 +151,6 @@ def load_model(model_name):
 
             model = load_quantized(model_name)
 
-    # Custom
     else:
         params = {"low_cpu_mem_usage": True}
         if not any((shared.args.cpu, torch.cuda.is_available(), torch.has_mps)):
@@ -180,10 +174,12 @@ def load_model(model_name):
             if shared.args.gpu_memory:
                 memory_map = list(map(lambda x: x.strip(), shared.args.gpu_memory))
                 max_cpu_memory = shared.args.cpu_memory.strip() if shared.args.cpu_memory is not None else '99GiB'
-                max_memory = {}
-                for i in range(len(memory_map)):
-                    max_memory[i] = f'{memory_map[i]}GiB' if not re.match('.*ib$', memory_map[i].lower()) else memory_map[i]
-
+                max_memory = {
+                    i: memory_map[i]
+                    if re.match('.*ib$', memory_map[i].lower())
+                    else f'{memory_map[i]}GiB'
+                    for i in range(len(memory_map))
+                }
                 max_memory['cpu'] = max_cpu_memory
                 params['max_memory'] = max_memory
             elif shared.args.auto_devices:

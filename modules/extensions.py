@@ -115,12 +115,9 @@ def apply_extensions(typ, *args, **kwargs):
 def create_extensions_block():
     global setup_called
 
-    should_display_ui = False
-    for extension, name in iterator():
-        if hasattr(extension, "ui"):
-            should_display_ui = True
-            break
-
+    should_display_ui = any(
+        hasattr(extension, "ui") for extension, name in iterator()
+    )
     # Creating the extension ui elements
     if should_display_ui:
         with gr.Column(elem_id="extensions"):
