@@ -150,9 +150,7 @@ class LLaVAEmbedder:
     @staticmethod
     def len_in_tokens(text):
         images = re.findall(r'<img src="data:image/jpeg;base64,[A-Za-z0-9+/=]+">', text)
-        image_tokens = 0
-        for _ in images:
-            image_tokens += 258
+        image_tokens = sum(258 for _ in images)
         return len(encode(re.sub(r'<img src="data:image/jpeg;base64,[A-Za-z0-9+/=]+">', '', text))[0]) + image_tokens
 
 
@@ -188,9 +186,9 @@ def add_chat_picture(picture, text, visible_text):
 
 
 def custom_generate_chat_prompt(user_input, state, **kwargs):
-    impersonate = kwargs['impersonate'] if 'impersonate' in kwargs else False
-    _continue = kwargs['_continue'] if '_continue' in kwargs else False
-    also_return_rows = kwargs['also_return_rows'] if 'also_return_rows' in kwargs else False
+    impersonate = kwargs.get('impersonate', False)
+    _continue = kwargs.get('_continue', False)
+    also_return_rows = kwargs.get('also_return_rows', False)
     rows = [f"{state['context'].strip()}\n"]
     min_rows = 3
 
@@ -231,10 +229,7 @@ def custom_generate_chat_prompt(user_input, state, **kwargs):
         rows.pop(1)
     prompt = ''.join(rows)
 
-    if also_return_rows:
-        return prompt, rows
-    else:
-        return prompt
+    return (prompt, rows) if also_return_rows else prompt
 
 
 def tokenizer_modifier(state, prompt, input_ids, input_embeds):
@@ -243,7 +238,7 @@ def tokenizer_modifier(state, prompt, input_ids, input_embeds):
     image_matches = re.finditer(r'<img src="data:image/jpeg;base64,([A-Za-z0-9+/=]+)">', prompt)
     images = [Image.open(BytesIO(base64.b64decode(match.group(1)))) for match in image_matches]
 
-    if len(images) == 0:
+    if not images:
         return prompt, input_ids, input_embeds
 
     prompt, input_ids, input_embeds, total_embedded = llava_embedder.forward(prompt, images, state)

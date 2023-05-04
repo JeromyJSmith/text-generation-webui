@@ -28,16 +28,12 @@ async def _handle_connection(websocket, path):
             prompt, generate_params, stopping_strings=stopping_strings)
 
         # As we stream, only send the new bytes.
-        skip_index = len(prompt) if not shared.is_chat() else 0
+        skip_index = 0 if shared.is_chat() else len(prompt)
         message_num = 0
 
         for a in generator:
             to_send = ''
-            if isinstance(a, str):
-                to_send = a[skip_index:]
-            else:
-                to_send = a[0][skip_index:]
-
+            to_send = a[skip_index:] if isinstance(a, str) else a[0][skip_index:]
             await websocket.send(json.dumps({
                 'event': 'text_stream',
                 'message_num': message_num,
